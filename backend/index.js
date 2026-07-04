@@ -18,6 +18,14 @@ const NGINX_DIR = IS_PRODUCTION ? '/etc/nginx/sites-available' : path.join(__dir
 const NGINX_ENABLED_DIR = IS_PRODUCTION ? '/etc/nginx/sites-enabled' : path.join(__dirname, 'mock/nginx/sites-enabled');
 const WWW_DIR = IS_PRODUCTION ? '/var/www' : path.join(__dirname, 'mock/www');
 
+const CONFIG_PATHS = {
+    nginx: IS_PRODUCTION ? '/etc/nginx/nginx.conf' : path.join(__dirname, 'mock/etc/nginx/nginx.conf'),
+    php: IS_PRODUCTION ? '/etc/php/8.3/fpm/php.ini' : path.join(__dirname, 'mock/etc/php/php.ini'),
+    mariadb: IS_PRODUCTION ? '/etc/mysql/mariadb.conf.d/50-server.cnf' : path.join(__dirname, 'mock/etc/mysql/my.cnf'),
+    vsftpd: IS_PRODUCTION ? '/etc/vsftpd.conf' : path.join(__dirname, 'mock/etc/vsftpd/vsftpd.conf')
+};
+const FIREWALL_MOCK = path.join(__dirname, 'mock/firewall.json');
+
 const app = express();
 
 // Middleware
@@ -262,6 +270,144 @@ app.post('/api/files/unzip', authenticateToken, async (req, res) => {
         res.json({ message: 'Unzipped successfully' });
     } catch(e) {
         res.status(500).json({ error: e.toString() });
+    }
+});
+
+// API: Config Editor
+app.get('/api/config/:service', authenticateToken, (req, res) => {
+    const { service } = req.params;
+    const configPath = CONFIG_PATHS[service];
+    if (!configPath) return res.status(400).json({ error: 'Unknown service' });
+
+    try {
+        if (!fs.existsSync(configPath)) {
+            // For mock, just return some defaults if file doesn't exist
+            return res.json({}); 
+        }
+        const content = fs.readFileSync(configPath, 'utf8');
+        const config = {};
+        
+        // Simple regex parsing based on service type
+        if (service === 'nginx') {
+            const wp = content.match(/worker_processes\s+([^;]+);/);
+            const cmbs = content.match(/client_max_body_size\s+([^;]+);/);
+            if (wp) config.worker_processes = wp[1];
+            if (cmbs) config.client_max_body_size = cmbs[1];
+        } else if (service === 'php') {
+            const mem = content.match(/memory_limit\s*=\s*(.+)/);
+            const upl = content.match(/upload_max_filesize\s*=\s*(.+)/);
+            const post = content.match(/post_max_size\s*=\s*(.+)/);
+            const max = content.match(/max_execution_time\s*=\s*(.+)/);
+            if (mem) config.memory_limit = mem[1];
+            if (upl) config.upload_max_filesize = upl[1];
+            if (post) config.post_max_size = post[1];
+            if (max) config.max_execution_time = max[1];
+        } else if (service === 'mariadb') {
+            const mc = content.match(/max_connections\s*=\s*(.+)/);
+            const ibps = content.match(/innodb_buffer_pool_size\s*=\s*(.+)/);
+            if (mc) config.max_connections = mc[1];
+            if (ibps) config.innodb_buffer_pool_size = ibps[1];
+        } else if (service === 'vsftpd') {
+            const ae = content.match(/anonymous_enable=(.+)/);
+            const le = content.match(/local_enable=(.+)/);
+            const we = content.match(/write_enable=(.+)/);
+            if (ae) config.anonymous_enable = ae[1];
+            if (le) config.local_enable = le[1];
+            if (we) config.write_enable = we[1];
+        }
+        
+        res.json(config);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/config/:service', authenticateToken, (req, res) => {
+    const { service } = req.params;
+    const updates = req.body;
+    const configPath = CONFIG_PATHS[service];
+    if (!configPath) return res.status(400).json({ error: 'Unknown service' });
+
+    try {
+        let content = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+        
+        const replaceOrAppend = (regex, replacement, defaultStr) => {
+            if (regex.test(content)) {
+                content = content.replace(regex, replacement);
+            } else {
+                content += '\\n' + defaultStr;
+            }
+        };
+
+        if (service === 'nginx') {
+            if (updates.worker_processes) replaceOrAppend(/worker_processes\s+[^;]+;/, \`worker_processes \${updates.worker_processes};\`, \`worker_processes \${updates.worker_processes};\`);
+            if (updates.client_max_body_size) replaceOrAppend(/client_max_body_size\s+[^;]+;/, \`client_max_body_size \${updates.client_max_body_size};\`, \`client_max_body_size \${updates.client_max_body_size};\`);
+        } else if (service === 'php') {
+            if (updates.memory_limit) replaceOrAppend(/memory_limit\s*=\s*.+/, \`memory_limit = \${updates.memory_limit}\`, \`memory_limit = \${updates.memory_limit}\`);
+            if (updates.upload_max_filesize) replaceOrAppend(/upload_max_filesize\s*=\s*.+/, \`upload_max_filesize = \${updates.upload_max_filesize}\`, \`upload_max_filesize = \${updates.upload_max_filesize}\`);
+            if (updates.post_max_size) replaceOrAppend(/post_max_size\s*=\s*.+/, \`post_max_size = \${updates.post_max_size}\`, \`post_max_size = \${updates.post_max_size}\`);
+            if (updates.max_execution_time) replaceOrAppend(/max_execution_time\s*=\s*.+/, \`max_execution_time = \${updates.max_execution_time}\`, \`max_execution_time = \${updates.max_execution_time}\`);
+        } else if (service === 'mariadb') {
+            if (updates.max_connections) replaceOrAppend(/max_connections\s*=\s*.+/, \`max_connections = \${updates.max_connections}\`, \`max_connections = \${updates.max_connections}\`);
+            if (updates.innodb_buffer_pool_size) replaceOrAppend(/innodb_buffer_pool_size\s*=\s*.+/, \`innodb_buffer_pool_size = \${updates.innodb_buffer_pool_size}\`, \`innodb_buffer_pool_size = \${updates.innodb_buffer_pool_size}\`);
+        } else if (service === 'vsftpd') {
+            if (updates.anonymous_enable) replaceOrAppend(/anonymous_enable=.+/, \`anonymous_enable=\${updates.anonymous_enable}\`, \`anonymous_enable=\${updates.anonymous_enable}\`);
+            if (updates.local_enable) replaceOrAppend(/local_enable=.+/, \`local_enable=\${updates.local_enable}\`, \`local_enable=\${updates.local_enable}\`);
+            if (updates.write_enable) replaceOrAppend(/write_enable=.+/, \`write_enable=\${updates.write_enable}\`, \`write_enable=\${updates.write_enable}\`);
+        }
+
+        fs.writeFileSync(configPath, content);
+        res.json({ message: 'Configuration updated successfully' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// API: Firewall
+app.get('/api/firewall', authenticateToken, async (req, res) => {
+    try {
+        if (!IS_PRODUCTION) {
+            const data = fs.existsSync(FIREWALL_MOCK) ? JSON.parse(fs.readFileSync(FIREWALL_MOCK)) : { rules: [] };
+            return res.json(data);
+        }
+        // In production, we'd parse `ufw status`
+        const status = await executeCommand('ufw status');
+        // Dummy parsed data for production (would need actual parsing)
+        res.json({ rules: [{ port: '80/tcp', action: 'ALLOW' }, { port: '443/tcp', action: 'ALLOW' }]});
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/firewall', authenticateToken, async (req, res) => {
+    const { port, action } = req.body; // e.g. port="22/tcp", action="ALLOW"
+    try {
+        if (!IS_PRODUCTION) {
+            const data = fs.existsSync(FIREWALL_MOCK) ? JSON.parse(fs.readFileSync(FIREWALL_MOCK)) : { rules: [] };
+            data.rules.push({ port, action });
+            fs.writeFileSync(FIREWALL_MOCK, JSON.stringify(data));
+            return res.json({ message: 'Rule added' });
+        }
+        await executeCommand(`ufw ${action.toLowerCase()} ${port}`);
+        res.json({ message: 'Rule added' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/firewall/:port', authenticateToken, async (req, res) => {
+    const port = decodeURIComponent(req.params.port);
+    try {
+        if (!IS_PRODUCTION) {
+            const data = fs.existsSync(FIREWALL_MOCK) ? JSON.parse(fs.readFileSync(FIREWALL_MOCK)) : { rules: [] };
+            data.rules = data.rules.filter(r => r.port !== port);
+            fs.writeFileSync(FIREWALL_MOCK, JSON.stringify(data));
+            return res.json({ message: 'Rule deleted' });
+        }
+        await executeCommand(`ufw delete allow ${port}`);
+        res.json({ message: 'Rule deleted' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 
