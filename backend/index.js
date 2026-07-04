@@ -340,20 +340,20 @@ app.post('/api/config/:service', authenticateToken, (req, res) => {
         };
 
         if (service === 'nginx') {
-            if (updates.worker_processes) replaceOrAppend(/worker_processes\s+[^;]+;/, \`worker_processes \${updates.worker_processes};\`, \`worker_processes \${updates.worker_processes};\`);
-            if (updates.client_max_body_size) replaceOrAppend(/client_max_body_size\s+[^;]+;/, \`client_max_body_size \${updates.client_max_body_size};\`, \`client_max_body_size \${updates.client_max_body_size};\`);
+            if (updates.worker_processes) replaceOrAppend(/worker_processes\s+[^;]+;/, `worker_processes ${updates.worker_processes};`, `worker_processes ${updates.worker_processes};`);
+            if (updates.client_max_body_size) replaceOrAppend(/client_max_body_size\s+[^;]+;/, `client_max_body_size ${updates.client_max_body_size};`, `client_max_body_size ${updates.client_max_body_size};`);
         } else if (service === 'php') {
-            if (updates.memory_limit) replaceOrAppend(/memory_limit\s*=\s*.+/, \`memory_limit = \${updates.memory_limit}\`, \`memory_limit = \${updates.memory_limit}\`);
-            if (updates.upload_max_filesize) replaceOrAppend(/upload_max_filesize\s*=\s*.+/, \`upload_max_filesize = \${updates.upload_max_filesize}\`, \`upload_max_filesize = \${updates.upload_max_filesize}\`);
-            if (updates.post_max_size) replaceOrAppend(/post_max_size\s*=\s*.+/, \`post_max_size = \${updates.post_max_size}\`, \`post_max_size = \${updates.post_max_size}\`);
-            if (updates.max_execution_time) replaceOrAppend(/max_execution_time\s*=\s*.+/, \`max_execution_time = \${updates.max_execution_time}\`, \`max_execution_time = \${updates.max_execution_time}\`);
+            if (updates.memory_limit) replaceOrAppend(/memory_limit\s*=\s*.+/, `memory_limit = ${updates.memory_limit}`, `memory_limit = ${updates.memory_limit}`);
+            if (updates.upload_max_filesize) replaceOrAppend(/upload_max_filesize\s*=\s*.+/, `upload_max_filesize = ${updates.upload_max_filesize}`, `upload_max_filesize = ${updates.upload_max_filesize}`);
+            if (updates.post_max_size) replaceOrAppend(/post_max_size\s*=\s*.+/, `post_max_size = ${updates.post_max_size}`, `post_max_size = ${updates.post_max_size}`);
+            if (updates.max_execution_time) replaceOrAppend(/max_execution_time\s*=\s*.+/, `max_execution_time = ${updates.max_execution_time}`, `max_execution_time = ${updates.max_execution_time}`);
         } else if (service === 'mariadb') {
-            if (updates.max_connections) replaceOrAppend(/max_connections\s*=\s*.+/, \`max_connections = \${updates.max_connections}\`, \`max_connections = \${updates.max_connections}\`);
-            if (updates.innodb_buffer_pool_size) replaceOrAppend(/innodb_buffer_pool_size\s*=\s*.+/, \`innodb_buffer_pool_size = \${updates.innodb_buffer_pool_size}\`, \`innodb_buffer_pool_size = \${updates.innodb_buffer_pool_size}\`);
+            if (updates.max_connections) replaceOrAppend(/max_connections\s*=\s*.+/, `max_connections = ${updates.max_connections}`, `max_connections = ${updates.max_connections}`);
+            if (updates.innodb_buffer_pool_size) replaceOrAppend(/innodb_buffer_pool_size\s*=\s*.+/, `innodb_buffer_pool_size = ${updates.innodb_buffer_pool_size}`, `innodb_buffer_pool_size = ${updates.innodb_buffer_pool_size}`);
         } else if (service === 'vsftpd') {
-            if (updates.anonymous_enable) replaceOrAppend(/anonymous_enable=.+/, \`anonymous_enable=\${updates.anonymous_enable}\`, \`anonymous_enable=\${updates.anonymous_enable}\`);
-            if (updates.local_enable) replaceOrAppend(/local_enable=.+/, \`local_enable=\${updates.local_enable}\`, \`local_enable=\${updates.local_enable}\`);
-            if (updates.write_enable) replaceOrAppend(/write_enable=.+/, \`write_enable=\${updates.write_enable}\`, \`write_enable=\${updates.write_enable}\`);
+            if (updates.anonymous_enable) replaceOrAppend(/anonymous_enable=.+/, `anonymous_enable=${updates.anonymous_enable}`, `anonymous_enable=${updates.anonymous_enable}`);
+            if (updates.local_enable) replaceOrAppend(/local_enable=.+/, `local_enable=${updates.local_enable}`, `local_enable=${updates.local_enable}`);
+            if (updates.write_enable) replaceOrAppend(/write_enable=.+/, `write_enable=${updates.write_enable}`, `write_enable=${updates.write_enable}`);
         }
 
         fs.writeFileSync(configPath, content);
@@ -429,7 +429,7 @@ app.post('/api/services/restart', authenticateToken, async (req, res) => {
 
 // Serve Frontend Static Files
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
-app.get('*', (req, res) => {
+app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
