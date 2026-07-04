@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Globe, Settings, Database, FolderOpen, Shield, LogOut, Cpu, HardDrive, MemoryStick as Memory, File, FileArchive, Trash, Plus, Upload, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, Globe, Settings, Database, FolderOpen, Shield, LogOut, Cpu, HardDrive, MemoryStick as Memory, File, FileArchive, Trash, Plus, Upload, ArrowLeft, Save } from 'lucide-react';
 import axios from 'axios';
 import './index.css';
 import './App.css';
@@ -314,6 +314,158 @@ const FileManager = () => {
         </div>
     );
 };
+
+const ConfigEditor = ({ service, title, schema }: { service: string, title: string, schema: {key: string, label: string, type: string, options?: string[]}[] }) => {
+    const [config, setConfig] = useState<Record<string, string>>({});
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const res = await axios.get(`${API_BASE}/config/${service}`);
+                setConfig(res.data);
+            } catch (e) { console.error(e); }
+        };
+        fetchConfig();
+    }, [service]);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            await axios.post(`${API_BASE}/config/${service}`, config);
+            alert('Configuration saved successfully!');
+            // Optionally restart service
+            await axios.post(`${API_BASE}/services/restart`, { service: service === 'php' ? 'php-fpm' : service });
+        } catch (e) {
+            alert('Failed to save configuration');
+        }
+        setSaving(false);
+    };
+
+    return (
+        <div className="page-container">
+            <header className="page-header">
+                <h1>{title}</h1>
+                <p>Modify {service} settings</p>
+            </header>
+            <div className="glass-panel" style={{maxWidth: '600px'}}>
+                <form onSubmit={handleSave}>
+                    {schema.map(field => (
+                        <div className="input-group" key={field.key}>
+                            <label>{field.label}</label>
+                            {field.type === 'select' ? (
+                                <select 
+                                    value={config[field.key] || ''} 
+                                    onChange={e => setConfig({...config, [field.key]: e.target.value})}
+                                >
+                                    <option value="">Select...</option>
+                                    {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                </select>
+                            ) : (
+                                <input 
+                                    type={field.type} 
+                                    value={config[field.key] || ''} 
+                                    onChange={e => setConfig({...config, [field.key]: e.target.value})}
+                                    placeholder={field.label}
+                                />
+                            )}
+                        </div>
+                    ))}
+                    <button type="submit" className="btn btn-primary" disabled={saving} style={{marginTop: '16px'}}>
+                        <Save size={18}/> {saving ? 'Saving...' : 'Save & Restart'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const FirewallManager = () => {
+    const [rules, setRules] = useState<any[]>([]);
+    const [newPort, setNewPort] = useState('');
+    const [newAction, setNewAction] = useState('ALLOW');
+
+    const fetchRules = async () => {
+        try {
+            const res = await axios.get(`${API_BASE}/firewall`);
+            setRules(res.data.rules || []);
+        } catch (e) { console.error(e); }
+    };
+
+    useEffect(() => { fetchRules(); }, []);
+
+    const addRule = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await axios.post(`${API_BASE}/firewall`, { port: newPort, action: newAction });
+            setNewPort('');
+            fetchRules();
+        } catch (e) { alert('Failed to add rule'); }
+    };
+
+    const deleteRule = async (port: string) => {
+        if(!confirm(`Delete rule for ${port}?`)) return;
+        try {
+            await axios.delete(`${API_BASE}/firewall/${encodeURIComponent(port)}`);
+            fetchRules();
+        } catch (e) { alert('Failed to delete rule'); }
+    };
+
+    return (
+        <div className="page-container">
+            <header className="page-header">
+                <h1>Firewall Settings</h1>
+                <p>Manage allowed ports and services</p>
+            </header>
+            
+            <div className="glass-panel" style={{marginBottom: '24px'}}>
+                <h3>Add New Rule</h3>
+                <form onSubmit={addRule} style={{display: 'flex', gap: '12px', marginTop: '16px', alignItems: 'flex-end'}}>
+                    <div className="input-group" style={{flex: 1, marginBottom: 0}}>
+                        <label>Port/Service (e.g. 8080/tcp)</label>
+                        <input type="text" value={newPort} onChange={e => setNewPort(e.target.value)} required />
+                    </div>
+                    <div className="input-group" style={{width: '150px', marginBottom: 0}}>
+                        <label>Action</label>
+                        <select value={newAction} onChange={e => setNewAction(e.target.value)}>
+                            <option value="ALLOW">ALLOW</option>
+                            <option value="DENY">DENY</option>
+                        </select>
+                    </div>
+                    <button type="submit" className="btn btn-primary" style={{height: '42px'}}><Plus size={18}/> Add Rule</button>
+                </form>
+            </div>
+            
+            <div className="glass-panel">
+                <table style={{width: '100%', textAlign: 'left', borderCollapse: 'collapse'}}>
+                    <thead>
+                        <tr style={{borderBottom: '1px solid var(--panel-border)'}}>
+                            <th style={{padding: '12px'}}>Port / Service</th>
+                            <th style={{padding: '12px'}}>Action</th>
+                            <th style={{padding: '12px'}}>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rules.length === 0 && <tr><td colSpan={3} style={{padding: '12px', textAlign: 'center'}}>No custom rules found.</td></tr>}
+                        {rules.map((rule, idx) => (
+                            <tr key={idx} style={{borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
+                                <td style={{padding: '12px', fontWeight: 'bold'}}>{rule.port}</td>
+                                <td style={{padding: '12px'}}>
+                                    <span style={{color: rule.action === 'ALLOW' ? 'var(--success-color)' : 'var(--danger-color)'}}>{rule.action}</span>
+                                </td>
+                                <td style={{padding: '12px'}}>
+                                    <button className="btn btn-danger" onClick={() => deleteRule(rule.port)} style={{padding: '6px 10px'}}><Trash size={16}/></button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
 const Sidebar = ({ setAuthenticated }: { setAuthenticated: (val: boolean) => void }) => {
     const location = useLocation();
     
@@ -322,7 +474,8 @@ const Sidebar = ({ setAuthenticated }: { setAuthenticated: (val: boolean) => voi
         { path: '/vhosts', label: 'Virtual Hosts', icon: <Globe size={20}/> },
         { path: '/nginx', label: 'Nginx Config', icon: <Settings size={20}/> },
         { path: '/php', label: 'PHP Config', icon: <Settings size={20}/> },
-        { path: '/database', label: 'MariaDB / pMA', icon: <Database size={20}/> },
+        { path: '/database', label: 'MariaDB Config', icon: <Database size={20}/> },
+        { path: '/ftp', label: 'FTP Config', icon: <Settings size={20}/> },
         { path: '/files', label: 'File Manager', icon: <FolderOpen size={20}/> },
         { path: '/firewall', label: 'Firewall', icon: <Shield size={20}/> },
     ];
@@ -362,17 +515,6 @@ const Sidebar = ({ setAuthenticated }: { setAuthenticated: (val: boolean) => voi
     );
 };
 
-const Placeholder = ({ title }: { title: string }) => (
-    <div className="page-container">
-        <header className="page-header">
-            <h1>{title}</h1>
-        </header>
-        <div className="glass-panel">
-            <p>This module is currently under construction in the Sangatta preview.</p>
-        </div>
-    </div>
-);
-
 // Main App Component
 function App() {
     const [authenticated, setAuthenticated] = useState(!!localStorage.getItem('sangatta_token'));
@@ -386,11 +528,27 @@ function App() {
                         <Routes>
                             <Route path="/" element={<Dashboard />} />
                             <Route path="/vhosts" element={<VHostManager />} />
-                            <Route path="/nginx" element={<Placeholder title="Nginx Configuration" />} />
-                            <Route path="/php" element={<Placeholder title="PHP Configuration" />} />
-                            <Route path="/database" element={<Placeholder title="Database Management" />} />
+                            <Route path="/nginx" element={<ConfigEditor service="nginx" title="Nginx Configuration" schema={[
+                                {key: 'worker_processes', label: 'Worker Processes', type: 'select', options: ['1', '2', '4', '8', 'auto']},
+                                {key: 'client_max_body_size', label: 'Max Upload Size (e.g. 50M)', type: 'text'}
+                            ]} />} />
+                            <Route path="/php" element={<ConfigEditor service="php" title="PHP Configuration" schema={[
+                                {key: 'memory_limit', label: 'Memory Limit (e.g. 128M)', type: 'text'},
+                                {key: 'upload_max_filesize', label: 'Upload Max Filesize (e.g. 50M)', type: 'text'},
+                                {key: 'post_max_size', label: 'Post Max Size (e.g. 50M)', type: 'text'},
+                                {key: 'max_execution_time', label: 'Max Execution Time (seconds)', type: 'text'}
+                            ]} />} />
+                            <Route path="/database" element={<ConfigEditor service="mariadb" title="MariaDB Configuration" schema={[
+                                {key: 'max_connections', label: 'Max Connections', type: 'text'},
+                                {key: 'innodb_buffer_pool_size', label: 'InnoDB Buffer Pool Size (e.g. 128M)', type: 'text'}
+                            ]} />} />
                             <Route path="/files" element={<FileManager />} />
-                            <Route path="/firewall" element={<Placeholder title="Firewall & Security" />} />
+                            <Route path="/ftp" element={<ConfigEditor service="vsftpd" title="FTP Configuration" schema={[
+                                {key: 'anonymous_enable', label: 'Enable Anonymous FTP', type: 'select', options: ['YES', 'NO']},
+                                {key: 'local_enable', label: 'Enable Local Users', type: 'select', options: ['YES', 'NO']},
+                                {key: 'write_enable', label: 'Enable Write Access', type: 'select', options: ['YES', 'NO']}
+                            ]} />} />
+                            <Route path="/firewall" element={<FirewallManager />} />
                         </Routes>
                     </main>
                 </div>
