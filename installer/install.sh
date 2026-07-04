@@ -112,7 +112,11 @@ cd /opt/sangatta
 # Download and Extract Sangatta Release
 SANGATTA_RELEASE_URL="https://github.com/freeskoden/sangatta/releases/latest/download/sangatta-linux-x64.tar.gz"
 echo "Downloading Sangatta release from $SANGATTA_RELEASE_URL..."
-curl -L -o sangatta.tar.gz "$SANGATTA_RELEASE_URL" || { echo "Failed to download release. Using local files if available."; }
+curl -fsSL -o sangatta.tar.gz "$SANGATTA_RELEASE_URL" || { 
+    echo "ERROR: Failed to download release from GitHub (URL returned 404 or other error)."
+    echo "Please ensure you have published a Release on GitHub with the asset 'sangatta-linux-x64.tar.gz'."
+    exit 1
+}
 
 if [ -f "sangatta.tar.gz" ]; then
     tar -xzf sangatta.tar.gz
