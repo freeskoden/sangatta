@@ -59,7 +59,7 @@ if [ "$OS" == "ubuntu" ]; then
     apt-get update
     apt-get upgrade -y
     # Install dependencies
-    apt-get install -y nginx php-fpm php-mysql mariadb-server mariadb-client vsftpd ufw curl unzip zip tar
+    apt-get install -y nginx php-fpm php-mysql mariadb-server mariadb-client vsftpd ufw curl unzip zip tar build-essential
     
     # Install Node.js 20.x for backend
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -86,7 +86,7 @@ elif [ "$OS" == "rocky" ]; then
     # Enable EPEL
     dnf install -y epel-release
     # Install dependencies
-    dnf install -y nginx php-fpm php-mysqlnd mariadb-server mariadb vsftpd firewalld curl unzip zip tar nodejs
+    dnf install -y nginx php-fpm php-mysqlnd mariadb-server mariadb vsftpd firewalld curl unzip zip tar nodejs make gcc gcc-c++
     
     # Configure Firewall (firewalld)
     systemctl start firewalld
