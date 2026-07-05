@@ -161,7 +161,7 @@ const VHostManager = () => {
             await axios.post(`${API_BASE}/vhosts`, { domain: newDomain, phpVersion });
             setNewDomain('');
             fetchVHosts();
-        } catch (e) { alert('Failed to create VHost'); }
+        } catch (e: any) { alert('Failed to create VHost: ' + (e.response?.data?.error || e.message)); }
     };
     
     const deleteVHost = async (domain: string) => {

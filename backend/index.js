@@ -247,11 +247,16 @@ server {
     }
 
     location ~ \\.php$ {
-        include snippets/fastcgi-php.conf;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         fastcgi_pass unix:${socketPath};
     }
 }
 `;
+        
+        if (!fs.existsSync(NGINX_DIR)) fs.mkdirSync(NGINX_DIR, { recursive: true });
+        if (!fs.existsSync(NGINX_ENABLED_DIR)) fs.mkdirSync(NGINX_ENABLED_DIR, { recursive: true });
+        
         fs.writeFileSync(path.join(NGINX_DIR, domain), configContent.trim());
         
         // Save to DB
