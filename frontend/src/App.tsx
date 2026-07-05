@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Globe, Settings, Database, FolderOpen, Shield, LogOut, Cpu, HardDrive, MemoryStick as Memory, File, FileArchive, Trash, Plus, Upload, ArrowLeft, Save } from 'lucide-react';
+import { LayoutDashboard, Globe, Settings, Database, FolderOpen, Shield, LogOut, Cpu, HardDrive, MemoryStick as Memory, File, FileArchive, Trash, Plus, Upload, ArrowLeft, Save, Users } from 'lucide-react';
 import axios from 'axios';
 import './index.css';
 import './App.css';
@@ -26,6 +26,8 @@ const Login = ({ setAuthenticated }: { setAuthenticated: (val: boolean) => void 
         try {
             const res = await axios.post(`${API_BASE}/auth/login`, { username, password });
             localStorage.setItem('sangatta_token', res.data.token);
+            const decoded = JSON.parse(atob(res.data.token.split('.')[1]));
+            localStorage.setItem('sangatta_role', decoded.role);
             setAuthenticated(true);
             navigate('/');
         } catch (err) {
@@ -140,6 +142,9 @@ const Dashboard = () => {
 const VHostManager = () => {
     const [vhosts, setVhosts] = useState<any[]>([]);
     const [newDomain, setNewDomain] = useState('');
+    const [phpVersion, setPhpVersion] = useState('8.3');
+    
+    const role = localStorage.getItem('sangatta_role');
     
     const fetchVHosts = async () => {
         try {
@@ -153,7 +158,7 @@ const VHostManager = () => {
     const createVHost = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await axios.post(`${API_BASE}/vhosts`, { domain: newDomain });
+            await axios.post(`${API_BASE}/vhosts`, { domain: newDomain, phpVersion });
             setNewDomain('');
             fetchVHosts();
         } catch (e) { alert('Failed to create VHost'); }
@@ -186,6 +191,13 @@ const VHostManager = () => {
                         style={{flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--panel-border)', background: 'rgba(0,0,0,0.2)', color: 'white'}}
                         required 
                     />
+                    <select value={phpVersion} onChange={e => setPhpVersion(e.target.value)} className="input-group" style={{padding: '10px', borderRadius: '8px', border: '1px solid var(--panel-border)', background: 'rgba(0,0,0,0.2)', color: 'white'}}>
+                        <option value="8.3">PHP 8.3</option>
+                        <option value="8.2">PHP 8.2</option>
+                        <option value="8.1">PHP 8.1</option>
+                        <option value="8.0">PHP 8.0</option>
+                        <option value="7.4">PHP 7.4</option>
+                    </select>
                     <button type="submit" className="btn btn-primary"><Plus size={18}/> Create</button>
                 </form>
             </div>
@@ -195,6 +207,8 @@ const VHostManager = () => {
                     <thead>
                         <tr style={{borderBottom: '1px solid var(--panel-border)'}}>
                             <th style={{padding: '12px'}}>Domain</th>
+                            {role === 'admin' && <th style={{padding: '12px'}}>Owner</th>}
+                            <th style={{padding: '12px'}}>PHP</th>
                             <th style={{padding: '12px'}}>Document Root</th>
                             <th style={{padding: '12px'}}>SSL</th>
                             <th style={{padding: '12px'}}>Status</th>
@@ -202,10 +216,12 @@ const VHostManager = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {vhosts.length === 0 && <tr><td colSpan={5} style={{padding: '12px', textAlign: 'center'}}>No Virtual Hosts found.</td></tr>}
+                        {vhosts.length === 0 && <tr><td colSpan={7} style={{padding: '12px', textAlign: 'center'}}>No Virtual Hosts found.</td></tr>}
                         {vhosts.map(vh => (
                             <tr key={vh.domain} style={{borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
                                 <td style={{padding: '12px', fontWeight: 'bold'}}>{vh.domain}</td>
+                                {role === 'admin' && <td style={{padding: '12px', color: 'var(--text-secondary)'}}>{vh.owner}</td>}
+                                <td style={{padding: '12px'}}><span className="badge">PHP {vh.phpVersion}</span></td>
                                 <td style={{padding: '12px', color: 'var(--text-secondary)'}}>{vh.root}</td>
                                 <td style={{padding: '12px'}}>{vh.ssl ? 'Yes' : 'No'}</td>
                                 <td style={{padding: '12px'}}><span style={{color: vh.status === 'active' ? 'var(--success-color)' : 'var(--danger-color)'}}>{vh.status}</span></td>
@@ -468,17 +484,25 @@ const FirewallManager = () => {
 
 const Sidebar = ({ setAuthenticated }: { setAuthenticated: (val: boolean) => void }) => {
     const location = useLocation();
+    const role = localStorage.getItem('sangatta_role');
     
-    const navItems = [
+    let navItems = [
         { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20}/> },
         { path: '/vhosts', label: 'Virtual Hosts', icon: <Globe size={20}/> },
-        { path: '/nginx', label: 'Nginx Config', icon: <Settings size={20}/> },
-        { path: '/php', label: 'PHP Config', icon: <Settings size={20}/> },
-        { path: '/database', label: 'MariaDB Config', icon: <Database size={20}/> },
-        { path: '/ftp', label: 'FTP Config', icon: <Settings size={20}/> },
         { path: '/files', label: 'File Manager', icon: <FolderOpen size={20}/> },
-        { path: '/firewall', label: 'Firewall', icon: <Shield size={20}/> },
     ];
+    
+    if (role === 'admin') {
+        navItems = [
+            ...navItems,
+            { path: '/users', label: 'Users', icon: <Users size={20}/> },
+            { path: '/nginx', label: 'Nginx Config', icon: <Settings size={20}/> },
+            { path: '/php', label: 'PHP Config', icon: <Settings size={20}/> },
+            { path: '/database', label: 'MariaDB Config', icon: <Database size={20}/> },
+            { path: '/ftp', label: 'FTP Config', icon: <Settings size={20}/> },
+            { path: '/firewall', label: 'Firewall', icon: <Shield size={20}/> },
+        ];
+    }
 
     const handleLogout = () => {
         localStorage.removeItem('sangatta_token');
@@ -515,6 +539,87 @@ const Sidebar = ({ setAuthenticated }: { setAuthenticated: (val: boolean) => voi
     );
 };
 
+const UserManagement = () => {
+    const [users, setUsers] = useState<any[]>([]);
+    const [newUsername, setNewUsername] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [newRole, setNewRole] = useState('client');
+    
+    const fetchUsers = async () => {
+        try {
+            const res = await axios.get(`${API_BASE}/users`);
+            setUsers(res.data);
+        } catch (e) { console.error(e); }
+    };
+    
+    useEffect(() => { fetchUsers(); }, []);
+    
+    const createUser = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await axios.post(`${API_BASE}/users`, { username: newUsername, password: newPassword, role: newRole });
+            setNewUsername('');
+            setNewPassword('');
+            fetchUsers();
+        } catch (e) { alert('Failed to create User'); }
+    };
+    
+    const deleteUser = async (username: string) => {
+        if(!confirm(`Delete user ${username}?`)) return;
+        try {
+            await axios.delete(`${API_BASE}/users/${username}`);
+            fetchUsers();
+        } catch (e) { alert('Failed to delete User'); }
+    };
+
+    return (
+        <div className="page-container">
+            <header className="page-header">
+                <h1>User Management</h1>
+                <p>Manage panel users and clients</p>
+            </header>
+            
+            <div className="glass-panel" style={{marginBottom: '24px'}}>
+                <h3>Add New User</h3>
+                <form onSubmit={createUser} style={{display: 'flex', gap: '12px', marginTop: '16px'}}>
+                    <input type="text" placeholder="Username" value={newUsername} onChange={e => setNewUsername(e.target.value)} className="input-group" style={{flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--panel-border)', background: 'rgba(0,0,0,0.2)', color: 'white'}} required />
+                    <input type="password" placeholder="Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="input-group" style={{flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--panel-border)', background: 'rgba(0,0,0,0.2)', color: 'white'}} required />
+                    <select value={newRole} onChange={e => setNewRole(e.target.value)} className="input-group" style={{padding: '10px', borderRadius: '8px', border: '1px solid var(--panel-border)', background: 'rgba(0,0,0,0.2)', color: 'white'}}>
+                        <option value="client">Client</option>
+                        <option value="admin">Administrator</option>
+                    </select>
+                    <button type="submit" className="btn btn-primary"><Plus size={18}/> Add</button>
+                </form>
+            </div>
+            
+            <div className="glass-panel">
+                <table style={{width: '100%', textAlign: 'left', borderCollapse: 'collapse'}}>
+                    <thead>
+                        <tr style={{borderBottom: '1px solid var(--panel-border)'}}>
+                            <th style={{padding: '12px'}}>Username</th>
+                            <th style={{padding: '12px'}}>Role</th>
+                            <th style={{padding: '12px'}}>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {users.map(u => (
+                            <tr key={u.username} style={{borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
+                                <td style={{padding: '12px', fontWeight: 'bold'}}>{u.username}</td>
+                                <td style={{padding: '12px'}}><span className="badge">{u.role}</span></td>
+                                <td style={{padding: '12px'}}>
+                                    {u.username !== 'admin' && (
+                                        <button className="btn btn-danger" onClick={() => deleteUser(u.username)} style={{padding: '6px 10px'}}><Trash size={16}/></button>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
 // Main App Component
 function App() {
     const [authenticated, setAuthenticated] = useState(!!localStorage.getItem('sangatta_token'));
@@ -527,6 +632,7 @@ function App() {
                     <main className="main-content">
                         <Routes>
                             <Route path="/" element={<Dashboard />} />
+                            <Route path="/users" element={<UserManagement />} />
                             <Route path="/vhosts" element={<VHostManager />} />
                             <Route path="/nginx" element={<ConfigEditor service="nginx" title="Nginx Configuration" schema={[
                                 {key: 'worker_processes', label: 'Worker Processes', type: 'select', options: ['1', '2', '4', '8', 'auto']},

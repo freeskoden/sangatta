@@ -59,7 +59,17 @@ if [ "$OS" == "ubuntu" ]; then
     apt-get update
     apt-get upgrade -y
     # Install dependencies
-    apt-get install -y nginx php-fpm php-mysql mariadb-server mariadb-client vsftpd ufw curl unzip zip tar build-essential
+    apt-get install -y software-properties-common
+    add-apt-repository ppa:ondrej/php -y
+    apt-get update
+    apt-get install -y nginx mariadb-server mariadb-client vsftpd ufw curl unzip zip tar build-essential
+    
+    # Install multiple PHP versions
+    apt-get install -y php7.4-fpm php7.4-mysql php7.4-mbstring php7.4-xml \
+                       php8.0-fpm php8.0-mysql php8.0-mbstring php8.0-xml \
+                       php8.1-fpm php8.1-mysql php8.1-mbstring php8.1-xml \
+                       php8.2-fpm php8.2-mysql php8.2-mbstring php8.2-xml \
+                       php8.3-fpm php8.3-mysql php8.3-mbstring php8.3-xml
     
     # Install Node.js 20.x for backend
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -83,10 +93,30 @@ if [ "$OS" == "ubuntu" ]; then
 
 elif [ "$OS" == "rocky" ]; then
     dnf update -y
-    # Enable EPEL
+    # Enable EPEL and Remi
     dnf install -y epel-release
+    dnf install -y http://rpms.remirepo.net/enterprise/remi-release-9.rpm
     # Install dependencies
-    dnf install -y nginx php-fpm php-mysqlnd mariadb-server mariadb vsftpd firewalld curl unzip zip tar nodejs make gcc gcc-c++
+    dnf install -y nginx mariadb-server mariadb vsftpd firewalld curl unzip zip tar nodejs make gcc gcc-c++
+    
+    # Install multiple PHP versions
+    dnf install -y php74-php-fpm php74-php-mysqlnd php74-php-mbstring php74-php-xml \
+                   php80-php-fpm php80-php-mysqlnd php80-php-mbstring php80-php-xml \
+                   php81-php-fpm php81-php-mysqlnd php81-php-mbstring php81-php-xml \
+                   php82-php-fpm php82-php-mysqlnd php82-php-mbstring php82-php-xml \
+                   php83-php-fpm php83-php-mysqlnd php83-php-mbstring php83-php-xml
+                   
+    # Enable and start PHP-FPM services
+    systemctl enable php74-php-fpm php80-php-fpm php81-php-fpm php82-php-fpm php83-php-fpm
+    systemctl start php74-php-fpm php80-php-fpm php81-php-fpm php82-php-fpm php83-php-fpm
+    
+    # Create symlinks for standardized socket paths used by Sangatta
+    mkdir -p /run/php
+    ln -sf /var/opt/remi/php74/run/php-fpm/www.sock /run/php/php7.4-fpm.sock
+    ln -sf /var/opt/remi/php80/run/php-fpm/www.sock /run/php/php8.0-fpm.sock
+    ln -sf /var/opt/remi/php81/run/php-fpm/www.sock /run/php/php8.1-fpm.sock
+    ln -sf /var/opt/remi/php82/run/php-fpm/www.sock /run/php/php8.2-fpm.sock
+    ln -sf /var/opt/remi/php83/run/php-fpm/www.sock /run/php/php8.3-fpm.sock
     
     # Configure Firewall (firewalld)
     systemctl start firewalld
