@@ -104,6 +104,27 @@ app.delete('/api/users/:username', authenticateToken, requireAdmin, (req, res) =
     res.json({ success: true });
 });
 
+app.put('/api/users/:username/password', authenticateToken, (req, res) => {
+    const { username } = req.params;
+    const { newPassword } = req.body;
+    
+    // Only allow admin to change any password, or user to change their own
+    if (req.user.role !== 'admin' && req.user.username !== username) {
+        return res.status(403).json({ error: 'Not authorized' });
+    }
+    
+    if (!newPassword || newPassword.trim() === '') {
+        return res.status(400).json({ error: 'Password cannot be empty' });
+    }
+    
+    const users = db.getUsers();
+    if (!users[username]) return res.status(404).json({ error: 'User not found' });
+    
+    users[username].password = db.hashPassword(newPassword);
+    db.saveUsers(users);
+    res.json({ success: true });
+});
+
 // API: System Metrics
 app.get('/api/system/metrics', authenticateToken, requireAdmin, async (req, res) => {
     try {

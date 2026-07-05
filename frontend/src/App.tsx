@@ -572,6 +572,17 @@ const UserManagement = () => {
         } catch (e) { alert('Failed to delete User'); }
     };
 
+    const changePassword = async (username: string) => {
+        const newPass = prompt(`Enter new password for ${username}:`);
+        if (!newPass) return;
+        try {
+            await axios.put(`${API_BASE}/users/${username}/password`, { newPassword: newPass });
+            alert('Password updated successfully!');
+        } catch (e: any) {
+            alert('Failed to update password: ' + (e.response?.data?.error || e.message));
+        }
+    };
+
     return (
         <div className="page-container">
             <header className="page-header">
@@ -606,7 +617,8 @@ const UserManagement = () => {
                             <tr key={u.username} style={{borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
                                 <td style={{padding: '12px', fontWeight: 'bold'}}>{u.username}</td>
                                 <td style={{padding: '12px'}}><span className="badge">{u.role}</span></td>
-                                <td style={{padding: '12px'}}>
+                                <td style={{padding: '12px', display: 'flex', gap: '8px'}}>
+                                    <button className="btn btn-primary" onClick={() => changePassword(u.username)} style={{padding: '6px 10px'}}>Change Password</button>
                                     {u.username !== 'admin' && (
                                         <button className="btn btn-danger" onClick={() => deleteUser(u.username)} style={{padding: '6px 10px'}}><Trash size={16}/></button>
                                     )}
