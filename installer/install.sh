@@ -122,6 +122,10 @@ if [ -f "sangatta.tar.gz" ]; then
     tar -xzf sangatta.tar.gz --strip-components=1
     rm sangatta.tar.gz
     echo "Sangatta extracted successfully."
+    
+    echo "Installing backend dependencies..."
+    cd /opt/sangatta/backend
+    npm install --production
 else
     echo "WARNING: Could not extract Sangatta tarball."
 fi
