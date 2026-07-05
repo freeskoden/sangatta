@@ -5,7 +5,7 @@ import axios from 'axios';
 import './index.css';
 import './App.css';
 
-const API_BASE = 'http://localhost:8006/api';
+const API_BASE = '/api';
 
 // Set up Axios interceptor for JWT
 axios.interceptors.request.use((config) => {
