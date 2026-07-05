@@ -25,7 +25,7 @@ mkdir -p staging/sangatta/frontend
 
 # 3. Copy files
 echo "Copying files..."
-cp -r backend/index.js backend/package.json backend/package-lock.json staging/sangatta/backend/
+cp -r backend/index.js backend/db.js backend/package.json backend/package-lock.json staging/sangatta/backend/
 cp -r frontend/dist staging/sangatta/frontend/
 
 # 4. Package tarball
