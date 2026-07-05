@@ -119,7 +119,7 @@ curl -fsSL -o sangatta.tar.gz "$SANGATTA_RELEASE_URL" || {
 }
 
 if [ -f "sangatta.tar.gz" ]; then
-    tar -xzf sangatta.tar.gz
+    tar -xzf sangatta.tar.gz --strip-components=1
     rm sangatta.tar.gz
     echo "Sangatta extracted successfully."
 else
